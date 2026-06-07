@@ -7,12 +7,15 @@
 import { z } from "zod";
 import { CategoryKindSchema } from "./category.schema";
 
+// Accept either `.` or `,` as decimal separator — iOS numeric keypad only
+// shows the locale separator (comma in es-ES), so refusing one locks mobile
+// users out.
 const AmountInCentsSchema = z
   .string()
   .trim()
   .refine((v) => v.length > 0, "Amount is required")
-  .refine((v) => /^\d+(\.\d{1,2})?$/.test(v), "Use a number like 19.99")
-  .transform((v) => Math.round(parseFloat(v) * 100))
+  .refine((v) => /^\d+([.,]\d{1,2})?$/.test(v), "Use a number like 19,99")
+  .transform((v) => Math.round(parseFloat(v.replace(",", ".")) * 100))
   .refine((cents) => cents > 0, "Amount must be greater than zero");
 
 const NotesSchema = z

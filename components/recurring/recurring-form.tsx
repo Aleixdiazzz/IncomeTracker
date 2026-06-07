@@ -127,10 +127,10 @@ export function RecurringForm({
           name="amount"
           type="text"
           inputMode="decimal"
-          placeholder="0.00"
+          placeholder="0,00"
           defaultValue={
             defaultValues
-              ? (defaultValues.amountCents / 100).toFixed(2)
+              ? (defaultValues.amountCents / 100).toFixed(2).replace(".", ",")
               : ""
           }
           required

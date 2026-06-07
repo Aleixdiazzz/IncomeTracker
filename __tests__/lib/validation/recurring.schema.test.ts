@@ -20,6 +20,14 @@ describe("CreateRecurringSchema", () => {
     expect(parsed.amountCents).toBe(999);
   });
 
+  it("accepts comma as decimal separator (iOS numeric keypad)", () => {
+    const parsed = CreateRecurringSchema.parse({
+      ...okBase,
+      amountCents: "19,99",
+    });
+    expect(parsed.amountCents).toBe(1999);
+  });
+
   it("accepts whole-dollar amounts", () => {
     const parsed = CreateRecurringSchema.parse({
       ...okBase,
