@@ -21,8 +21,8 @@ export function RecurringList({ items }: { items: RecurringEntryDTO[] }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border bg-card">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-lg border bg-card">
+      <table className="w-full min-w-[640px] text-sm">
         <thead className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-3">Label</th>
