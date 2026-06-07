@@ -1,0 +1,83 @@
+# Production stack for incometracker on the VPS.
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+# Design notes (safe to run alongside other apps on the box):
+#   - Postgres is NOT published to the host. It is only reachable on the private
+#     compose network by the app + migrate services. Nothing else can touch it.
+#   - The app binds to 127.0.0.1:${APP_PORT} only — never 0.0.0.0 — so your
+#     existing reverse proxy is the single public entry point. Set APP_PORT to a
+#     free port found during VPS recon.
+#   - `migrate` runs drizzle migrations once and exits. `app` waits for it to
+#     finish successfully and for Postgres to be healthy before starting.
+
+name: incometracker
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: incometracker_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    image: incometracker-migrate:latest
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: incometracker-app:latest
+    container_name: incometracker_app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    expose:
+      - "3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # `internal` carries DB traffic; `xpose-network` lets the existing
+    # xpose-static (Caddy) container reach this app by name. No host port is
+    # published — the only public entry point is Caddy.
+    networks:
+      - internal
+      - xpose-network
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    driver: bridge
+  xpose-network:
+    external: true

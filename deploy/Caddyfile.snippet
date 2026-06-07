@@ -1,0 +1,29 @@
+# Append to ~/astro-portfolio/XposePortfolio/Caddyfile.static, then rebuild the
+# Caddy image (Dockerfile.static copies the Caddyfile in) and recreate the
+# container so the new domain is picked up:
+#
+#   cd ~/astro-portfolio/XposePortfolio
+#   docker compose -f docker-compose.static.yml up -d --build caddy
+#
+# Caddy obtains and renews TLS automatically — no certbot needed.
+#
+# `incometracker_app` is the container name set in docker-compose.prod.yml.
+# This works because both containers share the external `xpose-network`.
+
+tracker.aleixdiazzz.com {
+    reverse_proxy incometracker_app:3000
+
+    encode gzip
+
+    header {
+        Strict-Transport-Security max-age=31536000;
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    log {
+        output file /var/log/caddy/incometracker-access.log
+        format json
+    }
+}
