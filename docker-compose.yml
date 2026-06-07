@@ -1,0 +1,24 @@
+# Local development Postgres for incometracker.
+# Disposable. Start: `docker compose up -d`. Stop: `docker compose down`.
+# Wipe everything (including the named volume): `docker compose down -v`.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: incometracker_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: incometracker
+      POSTGRES_PASSWORD: incometracker
+      POSTGRES_DB: incometracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incometracker -d incometracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

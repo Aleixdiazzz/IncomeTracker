@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Income Tracker
 
-## Getting Started
+Personal finance tracker. Log income + expenses, categorize them, see a month-to-date dashboard. Multi-user, self-hosted.
 
-First, run the development server:
+Built on **Next.js 16** (App Router) + **React 19** + **Tailwind v4** + **shadcn/ui** + **Drizzle ORM** + **Postgres** + **Better Auth** + **Vitest**.
+
+## Quick start
 
 ```bash
+# 1. Start local Postgres
+docker compose up -d
+
+# 2. Copy env template and set BETTER_AUTH_SECRET
+cp .env.example .env.local
+# Generate a secret: openssl rand -base64 32
+
+# 3. Install + migrate
+npm install
+npm run db:migrate
+
+# 4. Run
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# open http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Next dev server |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run test` | Run Vitest once |
+| `npm run test:watch` | Vitest in watch mode |
+| `npm run db:up` / `db:down` | Start / stop the Postgres container |
+| `npm run db:generate` | Diff schema → write a new migration SQL file |
+| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:studio` | Open Drizzle Studio (https://local.drizzle.studio) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+```
+app/                      # Next.js App Router
+  (auth)/                 # /login, /signup  — public, redirects if signed in
+  (app)/                  # protected — every page goes through the auth guard
+  api/auth/[...all]/      # Better Auth catch-all
+components/
+  ui/                     # shadcn-generated; you own these files
+  auth/  categories/  transactions/  dashboard/  layout/
+db/
+  schema/                 # Drizzle table definitions
+  migrations/             # generated SQL, checked in
+lib/
+  auth/                   # Better Auth instance, client, requireSession()
+  dal/                    # repos — the ONLY place that imports `db`
+  services/               # combine repos into use cases
+  validation/             # Zod schemas mirroring DB constraints
+docs/decisions/           # ADRs — start here when reading the codebase
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture in one paragraph
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Pages render. Server Actions handle forms (validate with Zod, call DAL, `revalidatePath`). The DAL is the single chokepoint for `db` — every repo function starts with `requireSession()` and every WHERE clause filters by `userId`. DTOs strip internal columns before crossing to UI. Dashboard aggregation runs in SQL. See `docs/decisions/` for the reasoning behind every locked-in choice.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Next 16 gotchas to remember
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `params` and `searchParams` are `Promise<...>` — always `await` them.
+- `cookies()` and `headers()` are async.
+- `fetch()` is **not** cached by default.
+- `error.tsx` MUST be a Client Component.
+- Tailwind 4 has no `tailwind.config.js` — theming lives in `app/globals.css`.
