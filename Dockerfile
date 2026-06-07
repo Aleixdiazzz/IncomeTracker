@@ -31,7 +31,8 @@ FROM builder AS migrator
 ENV NODE_ENV=production
 CMD ["npm", "run", "db:migrate"]
 
-# ---- runner: minimal production image ----
+# ---- runner: production image (full node_modules — Turbopack build does not
+#       currently emit .next/standalone, so we ship the deps the builder used).
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -39,15 +40,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-# Run as non-root.
-RUN addgroup --system --gid 1001 nodejs \
+RUN apk add --no-cache libc6-compat \
+  && addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-# Standalone output: server + traced node_modules, static assets, public dir.
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next         ./.next
+COPY --from=builder --chown=nextjs:nodejs /app/public        ./public
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules  ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json  ./package.json
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node_modules/.bin/next", "start", "-p", "3000", "-H", "0.0.0.0"]
